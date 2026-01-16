@@ -26,6 +26,7 @@ export default function Sidebar() {
 
   const handleDownload = async () => {
     setIsExporting(true);
+    // 找到 iPhone 框 (App.jsx 里标记的 ID)
     const element = document.getElementById('preview-capture');
     if (!element) return;
 
@@ -33,7 +34,7 @@ export default function Sidebar() {
       const canvas = await html2canvas(element, {
         useCORS: true,
         backgroundColor: null,
-        scale: 2,
+        scale: 2, // 2倍导出，保证高清
         logging: false,
       });
       const link = document.createElement('a');
@@ -71,10 +72,10 @@ export default function Sidebar() {
       {/* 中间滚动区 (手机端紧凑布局) */}
       <div className="flex-1 overflow-y-auto p-4 md:p-6 space-y-6 custom-scrollbar">
         
-        {/* UI 切换 */}
+        {/* UI 切换 (增加 Chat 模式) */}
         <section>
              <div className="flex bg-white/5 p-1 rounded-xl">
-                {['clean', 'wechat', 'rednote'].map(mode => (
+                {['clean', 'wechat', 'rednote', 'chat'].map(mode => (
                     <button
                         key={mode}
                         onClick={() => setUiMode(mode)}
@@ -110,26 +111,54 @@ export default function Sidebar() {
           </div>
         </section>
 
-        {/* 参数滑块 */}
+        {/* 参数控制区 (新增 Color Vibe) */}
         <section className="space-y-4">
-          <div className="flex items-center gap-3">
-             <span className="text-[10px] text-white/60 w-12">Darken</span>
-             <input type="range" min="0" max="80" value={params.darken} onChange={(e) => updateParams('darken', Number(e.target.value))} className="flex-1 h-1 bg-white/20 rounded-lg appearance-none cursor-pointer" />
+          
+          {/* 新增：色彩策略控制 */}
+          <div>
+            <div className="text-[10px] text-white/60 mb-2 font-bold uppercase tracking-widest">Color Vibe</div>
+            <div className="flex bg-white/5 p-1 rounded-lg">
+                {[
+                    { id: 'natural', label: '原色' },
+                    { id: 'contrast', label: '撞色' },
+                    { id: 'analogous', label: '氛围' }
+                ].map(mode => (
+                    <button
+                        key={mode.id}
+                        onClick={() => updateParams('colorMode', mode.id)}
+                        className={`flex-1 py-1.5 text-[10px] font-bold rounded transition-all
+                            ${params.colorMode === mode.id 
+                                ? 'bg-white/20 text-white shadow-sm' 
+                                : 'text-white/40 hover:text-white/70'}`}
+                    >
+                        {mode.label}
+                    </button>
+                ))}
+            </div>
           </div>
+
+          {/* 压暗滑块 */}
           <div className="flex items-center gap-3">
-             <span className="text-[10px] text-white/60 w-12">Noise</span>
-             <input type="range" min="0" max="50" value={params.noise} onChange={(e) => updateParams('noise', Number(e.target.value))} className="flex-1 h-1 bg-white/20 rounded-lg appearance-none cursor-pointer" />
+             <span className="text-[10px] text-white/60 w-12 font-bold uppercase">Darken</span>
+             <input type="range" min="0" max="80" value={params.darken} onChange={(e) => updateParams('darken', Number(e.target.value))} className="flex-1 h-1 bg-white/20 rounded-lg appearance-none cursor-pointer hover:bg-white/30" />
+          </div>
+          
+          {/* 噪点滑块 */}
+          <div className="flex items-center gap-3">
+             <span className="text-[10px] text-white/60 w-12 font-bold uppercase">Noise</span>
+             <input type="range" min="0" max="50" value={params.noise} onChange={(e) => updateParams('noise', Number(e.target.value))} className="flex-1 h-1 bg-white/20 rounded-lg appearance-none cursor-pointer hover:bg-white/30" />
           </div>
         </section>
 
-        {/* 文案输入 (手机端只显示一行，省空间) */}
+        {/* 文案输入 */}
         <section>
+          <div className="text-[10px] font-bold text-white/40 uppercase tracking-widest mb-2">Quote</div>
           <input 
             type="text"
             placeholder="输入文案..." 
             value={params.text}
             onChange={(e) => updateParams('text', e.target.value)}
-            className="w-full bg-black/40 border border-white/10 rounded-xl p-3 text-xs text-white focus:outline-none focus:border-white/30"
+            className="w-full bg-black/40 border border-white/10 rounded-xl p-3 text-xs text-white focus:outline-none focus:border-white/30 transition-all"
           />
         </section>
       </div>

@@ -1,7 +1,7 @@
 import React, { useRef, useEffect } from 'react';
 import { useAppStore } from '../../store/useAppStore';
 
-// 引入我们在 Step 2 移植好的算法核心
+// 引入核心算法模块
 import { ColorCore } from '../../core/colorExtract';
 import { GlitchCore } from '../../core/pixelSort';
 import { ChaosCore } from '../../core/puzzle';
@@ -58,11 +58,11 @@ export default function CanvasPreview() {
       } else if (activeEngine === 'chaos') {
         ChaosCore.render(ctx, img, width, height, baseColors);
       } else if (activeEngine === 'pixel') {
-         // Pixel 引擎逻辑简单，直接内联在这里，或者你以后单独拆分
+         // Pixel 引擎逻辑简单，直接内联
          renderPixelEngine(ctx, img, width, height);
       } else {
-        // 默认 Fluid (流体) 效果 - 这里简单模拟一个高斯模糊背景
-        renderFluidEngine(ctx, width, height, baseColors);
+        // Fluid (流体) 效果 - 传入 params 以支持配色模式
+        renderFluidEngine(ctx, width, height, baseColors, params);
       }
     } catch (e) {
       console.error("渲染引擎报错:", e);
@@ -91,22 +91,56 @@ export default function CanvasPreview() {
   return (
     <canvas 
       ref={canvasRef} 
-      className="w-full h-full object-cover rounded-[40px] shadow-2xl" 
+      className="w-full h-full object-cover md:rounded-[40px] shadow-2xl" 
     />
   );
 }
 
 // --- 内部微型引擎实现 ---
 
-function renderFluidEngine(ctx, w, h, colors) {
-    // 简单模拟流体：用渐变色填充
-    const grd = ctx.createLinearGradient(0, 0, 0, h);
-    const c1 = colors[0];
-    const c2 = colors[2] || colors[0];
-    grd.addColorStop(0, `rgb(${c1.r},${c1.g},${c1.b})`);
-    grd.addColorStop(1, `rgb(${c2.r},${c2.g},${c2.b})`);
-    ctx.fillStyle = grd;
+// 升级版 Fluid 引擎：支持 Music App 风格的弥散光感 + 配色策略
+function renderFluidEngine(ctx, w, h, colors, params) {
+    // 1. 获取配色方案 (应用色彩策略)
+    let palette = colors;
+    
+    // 确保 ColorCore.generateHarmony 存在 (防止未更新 core 文件导致报错)
+    if (params.colorMode !== 'natural' && ColorCore.generateHarmony) {
+        const newColors = ColorCore.generateHarmony(colors[0], params.colorMode);
+        if (newColors) palette = newColors;
+    }
+
+    // 确保有足够的颜色
+    const c1 = palette[0];
+    const c2 = palette[1] || c1;
+    const c3 = palette[2] || c2;
+
+    // 2. 绘制深色底色 (Music App 风格通常底色很深，我们用主色压暗做底)
+    ctx.fillStyle = `rgb(${c1.r * 0.2}, ${c1.g * 0.2}, ${c1.b * 0.2})`;
     ctx.fillRect(0, 0, w, h);
+
+    // 3. 绘制多个弥散光斑 (模拟流体)
+    // 技巧：使用 screen 混合模式让光斑叠加更通透
+    ctx.globalCompositeOperation = 'screen';
+    
+    const drawOrb = (x, y, r, color, opacity) => {
+        const grd = ctx.createRadialGradient(x, y, 0, x, y, r);
+        grd.addColorStop(0, `rgba(${color.r},${color.g},${color.b}, ${opacity})`);
+        grd.addColorStop(1, `rgba(${color.r},${color.g},${color.b}, 0)`);
+        ctx.fillStyle = grd;
+        ctx.beginPath();
+        ctx.arc(x, y, r, 0, Math.PI * 2);
+        ctx.fill();
+    };
+
+    // 主光斑 (左上，大范围)
+    drawOrb(0, 0, w * 0.9, c1, 0.6);
+    // 副光斑 (右下，中范围)
+    drawOrb(w, h, w * 0.8, c2, 0.5);
+    // 强调光斑 (中间游离，增加层次)
+    drawOrb(w * 0.3, h * 0.4, w * 0.6, c3, 0.4);
+
+    // 4. 重置混合模式，以免影响后续绘制
+    ctx.globalCompositeOperation = 'source-over';
 }
 
 function renderPixelEngine(ctx, img, w, h) {

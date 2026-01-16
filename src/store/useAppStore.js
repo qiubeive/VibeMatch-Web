@@ -11,7 +11,7 @@ export const useAppStore = create((set) => ({
   
   // --- 2. 界面状态 ---
   activeEngine: 'fluid', // fluid | glitch | chaos | pixel
-  uiMode: 'clean', // 新增：clean | wechat | rednote
+  uiMode: 'clean',       // clean | wechat | rednote | chat
   isProcessing: false,
   
   // --- 3. 参数控制 ---
@@ -19,11 +19,11 @@ export const useAppStore = create((set) => ({
     darken: 30,    // 压暗程度
     noise: 10,     // 噪点强度
     text: '',      // 叠加文案
+    colorMode: 'natural' // 新增: natural (自然) | contrast (撞色) | analogous (邻近)
   },
 
   // --- Actions (操作方法) ---
-  // 新增：切换 UI 模式的方法
-  setUiMode: (mode) => set({ uiMode: mode }),
+  
   // 上传新图片
   uploadImage: (file) => {
     const url = URL.createObjectURL(file);
@@ -39,7 +39,10 @@ export const useAppStore = create((set) => ({
   // 切换引擎
   setEngine: (engineId) => set({ activeEngine: engineId }),
   
-  // 更新参数 (通用方法)
+  // 切换 UI 模式
+  setUiMode: (mode) => set({ uiMode: mode }),
+  
+  // 更新参数 (通用方法 - 会自动处理 colorMode 等新增参数)
   updateParams: (key, value) => set((state) => ({
     params: { ...state.params, [key]: value }
   })),
