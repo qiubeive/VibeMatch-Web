@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
-import html2canvas from 'html2canvas';
 import { useAppStore } from '../../store/useAppStore';
+import { RenderPipeline } from '../../core/renderPipeline'; // 引入核心渲染管线
 import { Image as ImageIcon, Zap, Grid, Layers, Droplets, Download } from 'lucide-react';
 
 const engines = [
@@ -15,6 +15,7 @@ export default function Sidebar() {
     activeEngine, setEngine, 
     params, updateParams, 
     uploadImage, 
+    originalImage, baseColors, // 核心数据：原图和颜色
     uiMode, setUiMode 
   } = useAppStore();
   
@@ -24,42 +25,72 @@ export default function Sidebar() {
     if (e.target.files && e.target.files[0]) uploadImage(e.target.files[0]);
   };
 
+  // --- 商业级 4K 导出逻辑 ---
   const handleDownload = async () => {
+    // 如果没有原图或颜色还没提取好，不能导出
+    if (!originalImage || baseColors.length === 0) {
+        alert("请先上传图片并等待加载完成");
+        return;
+    }
+    
     setIsExporting(true);
-    // 找到 iPhone 框 (App.jsx 里标记的 ID)
-    const element = document.getElementById('preview-capture');
-    if (!element) return;
 
     try {
-      const canvas = await html2canvas(element, {
-        useCORS: true,
-        backgroundColor: null,
-        scale: 2, // 2倍导出，保证高清
-        logging: false,
-      });
-      const link = document.createElement('a');
-      link.download = `VibeMatch_${activeEngine}_${uiMode}_${Date.now()}.png`;
-      link.href = canvas.toDataURL('image/png', 1.0);
-      link.click();
-    } catch (error) {
-      console.error("导出失败:", error);
-      alert("导出失败，请重试");
-    } finally {
-      setIsExporting(false);
+        // 1. 创建高清离屏 Canvas (模拟 iPhone 14 Pro Max 分辨率)
+        // 商业标准：不管屏幕多小，导出的永远是 4K 高清图
+        const exportWidth = 1290;
+        const exportHeight = 2796;
+        
+        const canvas = document.createElement('canvas');
+        canvas.width = exportWidth;
+        canvas.height = exportHeight;
+        const ctx = canvas.getContext('2d');
+        
+        // 2. 调用核心管线进行绘制
+        // 这会复用所有的渲染逻辑，包括引擎、滤镜、以及画上去的 UI
+        // 这是一个"纯绘制"过程，不依赖浏览器截图，所以非常稳定且高清
+        RenderPipeline.render(ctx, {
+            image: originalImage,
+            width: exportWidth,
+            height: exportHeight,
+            engine: activeEngine,
+            colors: baseColors,
+            params: params,
+            uiMode: uiMode
+        });
+        
+        // 3. 导出 Blob 并下载
+        canvas.toBlob((blob) => {
+            if (!blob) {
+                alert("生成失败，请重试");
+                setIsExporting(false);
+                return;
+            }
+            const link = document.createElement('a');
+            link.download = `VibeMatch_${activeEngine}_${Date.now()}.png`;
+            link.href = URL.createObjectURL(blob);
+            link.click();
+            
+            // 清理内存
+            URL.revokeObjectURL(link.href);
+            setIsExporting(false);
+        }, 'image/png', 0.95); // 0.95 高质量 JPG/PNG
+        
+    } catch (err) {
+        console.error("Export failed", err);
+        alert("导出出错，请检查控制台");
+        setIsExporting(false);
     }
   };
 
   return (
-    // 响应式容器：
-    // 手机端 (默认): h-[45vh] w-full fixed bottom-0 (底部抽屉)
-    // 电脑端 (md:): h-full w-[400px] relative (右侧边栏)
     <aside className="
         z-30 shadow-[0_-10px_40px_rgba(0,0,0,0.5)] bg-glass-bg backdrop-blur-2xl border-t md:border-t-0 md:border-l border-glass-border flex flex-col
         fixed bottom-0 left-0 w-full h-[45vh]
         md:relative md:h-full md:w-[400px]
     ">
       
-      {/* 顶部 Header (手机端隐藏更换头像文案，只留图标，省空间) */}
+      {/* 顶部 Header */}
       <div className="p-4 md:p-6 border-b border-glass-border flex justify-between items-center shrink-0">
         <h1 className="text-lg md:text-xl font-bold tracking-tight">VibeMatch<span className="text-[#ff2442] text-xs align-top ml-1">PRO</span></h1>
         <label className="cursor-pointer text-xs bg-white text-black px-3 py-1.5 rounded-lg font-bold hover:bg-gray-200 transition flex items-center gap-2">
@@ -69,10 +100,10 @@ export default function Sidebar() {
         </label>
       </div>
 
-      {/* 中间滚动区 (手机端紧凑布局) */}
+      {/* 中间滚动区 */}
       <div className="flex-1 overflow-y-auto p-4 md:p-6 space-y-6 custom-scrollbar">
         
-        {/* UI 切换 (增加 Chat 模式) */}
+        {/* UI 模式选择 */}
         <section>
              <div className="flex bg-white/5 p-1 rounded-xl">
                 {['clean', 'wechat', 'rednote', 'chat'].map(mode => (
@@ -111,10 +142,10 @@ export default function Sidebar() {
           </div>
         </section>
 
-        {/* 参数控制区 (新增 Color Vibe) */}
+        {/* 参数控制区 */}
         <section className="space-y-4">
           
-          {/* 新增：色彩策略控制 */}
+          {/* 色彩策略控制 */}
           <div>
             <div className="text-[10px] text-white/60 mb-2 font-bold uppercase tracking-widest">Color Vibe</div>
             <div className="flex bg-white/5 p-1 rounded-lg">
@@ -155,7 +186,7 @@ export default function Sidebar() {
           <div className="text-[10px] font-bold text-white/40 uppercase tracking-widest mb-2">Quote</div>
           <input 
             type="text"
-            placeholder="输入文案..." 
+            placeholder="输入文案 (自动排版)..." 
             value={params.text}
             onChange={(e) => updateParams('text', e.target.value)}
             className="w-full bg-black/40 border border-white/10 rounded-xl p-3 text-xs text-white focus:outline-none focus:border-white/30 transition-all"
@@ -171,7 +202,7 @@ export default function Sidebar() {
             className="w-full bg-white text-black py-2.5 md:py-3 rounded-xl font-bold text-sm hover:scale-[1.02] active:scale-95 transition flex justify-center items-center gap-2 shadow-[0_0_20px_rgba(255,255,255,0.3)] disabled:opacity-50"
         >
             {isExporting ? <span className="animate-spin">⏳</span> : <Download size={16} />}
-            <span>{isExporting ? '生成中...' : '保存壁纸'}</span>
+            <span>{isExporting ? '正在渲染 4K 壁纸...' : '下载高清原图'}</span>
         </button>
       </div>
     </aside>
