@@ -4,9 +4,9 @@ export const useAppStore = create((set) => ({
   // --- 1. 数据状态 ---
   // 默认图片 URL
   imageUrl: "https://images.unsplash.com/photo-1534528741775-53994a69daeb?q=80&w=600&auto=format&fit=crop",
-  // 实际的 Image 对象 (用于 Canvas 处理)
+  // 实际的 Image 对象
   originalImage: null, 
-  // 提取出的颜色数组
+  // 提取出的颜色 (这里只存一个主色，具体配色由 renderPipeline 实时计算)
   baseColors: [],     
   
   // --- 2. 界面状态 ---
@@ -19,30 +19,25 @@ export const useAppStore = create((set) => ({
     darken: 30,    // 压暗程度
     noise: 10,     // 噪点强度
     text: '',      // 叠加文案
-    colorMode: 'natural' // 新增: natural (自然) | contrast (撞色) | analogous (邻近)
+    colorMode: 'natural' // natural (自然) | contrast (撞色) | analogous (邻近) | cyber (赛博)
   },
 
-  // --- Actions (操作方法) ---
+  // --- Actions ---
   
-  // 上传新图片
   uploadImage: (file) => {
     const url = URL.createObjectURL(file);
-    set({ imageUrl: url });
+    set({ imageUrl: url, isProcessing: true });
   },
 
-  // 设置加载完成的图片对象
-  setLoadedImage: (img) => set({ originalImage: img }),
+  setLoadedImage: (img) => set({ originalImage: img, isProcessing: false }),
   
-  // 设置分析出的颜色
   setBaseColors: (colors) => set({ baseColors: colors }),
   
-  // 切换引擎
   setEngine: (engineId) => set({ activeEngine: engineId }),
   
-  // 切换 UI 模式
   setUiMode: (mode) => set({ uiMode: mode }),
   
-  // 更新参数 (通用方法 - 会自动处理 colorMode 等新增参数)
+  // 深度合并更新参数
   updateParams: (key, value) => set((state) => ({
     params: { ...state.params, [key]: value }
   })),
